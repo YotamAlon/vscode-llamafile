@@ -4,7 +4,7 @@ import { Configuration, OpenAIApi } from 'openai';
 import createPrompt from './prompt';
 
 
-type AuthInfo = {apiKey?: string};
+type AuthInfo = {address?: string};
 export type Settings = {selectedInsideCodeblock?: boolean, pasteOnClick?: boolean, model?: string, maxTokens?: number, temperature?: number};
 
 
@@ -17,7 +17,7 @@ export function activate(context: vscode.ExtensionContext) {
 	const config = vscode.workspace.getConfiguration('llamafile');
 	// Put configuration settings into the provider
 	provider.setAuthenticationInfo({
-		apiKey: config.get('apiKey')
+		address: config.get('address')
 	});
 
 	provider.setSettings({
@@ -60,8 +60,8 @@ export function activate(context: vscode.ExtensionContext) {
 	vscode.workspace.onDidChangeConfiguration((event: vscode.ConfigurationChangeEvent) => {
 		if (event.affectsConfiguration('llamafile.address')) {
 			const config = vscode.workspace.getConfiguration('llamafile');
-			provider.setAuthenticationInfo({ apiKey: config.get('apiKey') });
-			console.log("API key changed");
+			provider.setAuthenticationInfo({ address: config.get('address') });
+			console.log("API address changed");
 		} else if (event.affectsConfiguration('llamafile.selectedInsideCodeblock')) {
 			const config = vscode.workspace.getConfiguration('llamafile');
 			provider.setSettings({ selectedInsideCodeblock: config.get('selectedInsideCodeblock') || false });
@@ -103,7 +103,7 @@ class LlamafileViewProvider implements vscode.WebviewViewProvider {
 		temperature: 0.5
 	};
 	private _apiConfiguration?: Configuration;
-	private _apiKey?: string;
+	private _address?: string;
 
 	// In the constructor, we store the URI of the extension
 	constructor(private readonly _extensionUri: vscode.Uri) {
@@ -112,8 +112,8 @@ class LlamafileViewProvider implements vscode.WebviewViewProvider {
 
 	// Set the session token and create a new API instance based on this token
 	public setAuthenticationInfo(authInfo: AuthInfo) {
-		this._apiKey = authInfo.apiKey;
-		this._apiConfiguration = new Configuration({apiKey: authInfo.apiKey});
+		this._address = authInfo.address;
+		this._apiConfiguration = new Configuration({basePath: authInfo.address});
 		this._newAPI();
 	}
 
@@ -125,10 +125,10 @@ class LlamafileViewProvider implements vscode.WebviewViewProvider {
 		return this._settings;
 	}
 
-	// This private method initializes a new ChatGPTAPI instance, using the session token if it is set
+	// This private method initializes a new OpenAIAPI instance, using the address if it is set
 	private _newAPI() {
-		if (!this._apiConfiguration || !this._apiKey) {
-			console.warn("API key not set, please go to extension settings (read README.md for more info)");
+		if (!this._apiConfiguration || !this._address) {
+			console.warn("API address not set, please go to extension settings (read README.md for more info)");
 		}else{
 			this._openai = new OpenAIApi(this._apiConfiguration);
 		}
@@ -194,12 +194,12 @@ class LlamafileViewProvider implements vscode.WebviewViewProvider {
 			return;
 		};
 
-		// Check if the ChatGPTAPI instance is defined
+		// Check if the OpenAIAPI instance is defined
 		if (!this._openai) {
 			this._newAPI();
 		}
 
-		// focus gpt activity from activity bar
+		// focus llamafile activity from activity bar
 		if (!this._view) {
 			await vscode.commands.executeCommand('llamafile.chatView.focus');
 		} else {
@@ -333,7 +333,7 @@ class LlamafileViewProvider implements vscode.WebviewViewProvider {
 				</style>
 			</head>
 			<body>
-				<input class="h-10 w-full text-white bg-stone-700 p-4 text-sm" placeholder="Ask GPT3 something" id="prompt-input" />
+				<input class="h-10 w-full text-white bg-stone-700 p-4 text-sm" placeholder="Ask llamafile something" id="prompt-input" />
 
 				<div id="response" class="pt-4 text-sm">
 				</div>
