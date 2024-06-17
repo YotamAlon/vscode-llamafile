@@ -9,12 +9,12 @@ export type Settings = {selectedInsideCodeblock?: boolean, pasteOnClick?: boolea
 
 
 export function activate(context: vscode.ExtensionContext) {
-	
-	// Create a new CodeGPTViewProvider instance and register it with the extension's context
-	const provider = new CodeGPTViewProvider(context.extensionUri);
-	
+
+	// Create a new llamafileViewProvider instance and register it with the extension's context
+	const provider = new LlamafileViewProvider(context.extensionUri);
+
 	// Get the API session token from the extension's configuration
-	const config = vscode.workspace.getConfiguration('codegpt');
+	const config = vscode.workspace.getConfiguration('llamafile');
 	// Put configuration settings into the provider
 	provider.setAuthenticationInfo({
 		apiKey: config.get('apiKey')
@@ -30,52 +30,52 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// Register the provider with the extension's context
 	context.subscriptions.push(
-		vscode.window.registerWebviewViewProvider(CodeGPTViewProvider.viewType, provider,  {
+		vscode.window.registerWebviewViewProvider(LlamafileViewProvider.viewType, provider,  {
 			webviewOptions: { retainContextWhenHidden: true }
 		})
 	);
 
 
 	const commandHandler = (command:string) => {
-		const config = vscode.workspace.getConfiguration('codegpt');
+		const config = vscode.workspace.getConfiguration('llamafile');
 		const prompt = config.get(command) as string;
 		provider.search(prompt);
 	};
 
 	// Register the commands that can be called from the extension's package.json
 	context.subscriptions.push(
-		vscode.commands.registerCommand('codegpt.ask', () => 
+		vscode.commands.registerCommand('llamafile.ask', () =>
 			vscode.window.showInputBox({ prompt: 'What do you want to do?' })
 			.then((value) => provider.search(value))
 		),
-		vscode.commands.registerCommand('codegpt.explain', () => commandHandler('promptPrefix.explain')),
-		vscode.commands.registerCommand('codegpt.refactor', () => commandHandler('promptPrefix.refactor')),
-		vscode.commands.registerCommand('codegpt.optimize', () => commandHandler('promptPrefix.optimize')),
-		vscode.commands.registerCommand('codegpt.findProblems', () => commandHandler('promptPrefix.findProblems')),
-		vscode.commands.registerCommand('codegpt.documentation', () => commandHandler('promptPrefix.documentation'))
+		vscode.commands.registerCommand('llamafile.explain', () => commandHandler('promptPrefix.explain')),
+		vscode.commands.registerCommand('llamafile.refactor', () => commandHandler('promptPrefix.refactor')),
+		vscode.commands.registerCommand('llamafile.optimize', () => commandHandler('promptPrefix.optimize')),
+		vscode.commands.registerCommand('llamafile.findProblems', () => commandHandler('promptPrefix.findProblems')),
+		vscode.commands.registerCommand('llamafile.documentation', () => commandHandler('promptPrefix.documentation'))
 	);
 
 
 	// Change the extension's settings when configuration is changed
 	vscode.workspace.onDidChangeConfiguration((event: vscode.ConfigurationChangeEvent) => {
-		if (event.affectsConfiguration('codegpt.apiKey')) {
-			const config = vscode.workspace.getConfiguration('codegpt');
+		if (event.affectsConfiguration('llamafile.address')) {
+			const config = vscode.workspace.getConfiguration('llamafile');
 			provider.setAuthenticationInfo({ apiKey: config.get('apiKey') });
 			console.log("API key changed");
-		} else if (event.affectsConfiguration('codegpt.selectedInsideCodeblock')) {
-			const config = vscode.workspace.getConfiguration('codegpt');
+		} else if (event.affectsConfiguration('llamafile.selectedInsideCodeblock')) {
+			const config = vscode.workspace.getConfiguration('llamafile');
 			provider.setSettings({ selectedInsideCodeblock: config.get('selectedInsideCodeblock') || false });
-		} else if (event.affectsConfiguration('codegpt.pasteOnClick')) {
-			const config = vscode.workspace.getConfiguration('codegpt');
+		} else if (event.affectsConfiguration('llamafile.pasteOnClick')) {
+			const config = vscode.workspace.getConfiguration('llamafile');
 			provider.setSettings({ pasteOnClick: config.get('pasteOnClick') || false });
-		} else if (event.affectsConfiguration('codegpt.maxTokens')) {
-			const config = vscode.workspace.getConfiguration('codegpt');
+		} else if (event.affectsConfiguration('llamafile.maxTokens')) {
+			const config = vscode.workspace.getConfiguration('llamafile');
 			provider.setSettings({ maxTokens: config.get('maxTokens') || 500 });
-		} else if (event.affectsConfiguration('codegpt.temperature')) {
-			const config = vscode.workspace.getConfiguration('codegpt');
+		} else if (event.affectsConfiguration('llamafile.temperature')) {
+			const config = vscode.workspace.getConfiguration('llamafile');
 			provider.setSettings({ temperature: config.get('temperature') || 0.5 });
-		} else if (event.affectsConfiguration('codegpt.model')) {
-			const config = vscode.workspace.getConfiguration('codegpt');
+		} else if (event.affectsConfiguration('llamafile.model')) {
+			const config = vscode.workspace.getConfiguration('llamafile');
 			provider.setSettings({ model: config.get('model') || 'text-davinci-003' });
 		}
 	});
@@ -85,8 +85,8 @@ export function activate(context: vscode.ExtensionContext) {
 
 
 
-class CodeGPTViewProvider implements vscode.WebviewViewProvider {
-	public static readonly viewType = 'codegpt.chatView';
+class LlamafileViewProvider implements vscode.WebviewViewProvider {
+	public static readonly viewType = 'llamafile.chatView';
 	private _view?: vscode.WebviewView;
 
 	private _openai?: OpenAIApi;
@@ -109,7 +109,7 @@ class CodeGPTViewProvider implements vscode.WebviewViewProvider {
 	constructor(private readonly _extensionUri: vscode.Uri) {
 
 	}
-	
+
 	// Set the session token and create a new API instance based on this token
 	public setAuthenticationInfo(authInfo: AuthInfo) {
 		this._apiKey = authInfo.apiKey;
@@ -201,11 +201,11 @@ class CodeGPTViewProvider implements vscode.WebviewViewProvider {
 
 		// focus gpt activity from activity bar
 		if (!this._view) {
-			await vscode.commands.executeCommand('codegpt.chatView.focus');
+			await vscode.commands.executeCommand('llamafile.chatView.focus');
 		} else {
 			this._view?.show?.(true);
 		}
-		
+
 		let response = '';
 		this._response = '';
 		// Get the selected text of the active editor
@@ -219,7 +219,7 @@ class CodeGPTViewProvider implements vscode.WebviewViewProvider {
 		} else {
 			// If successfully signed in
 			console.log("sendMessage");
-			
+
 			// Make sure the prompt is shown
 			this._view?.webview.postMessage({ type: 'setPrompt', value: this._prompt });
 			this._view?.webview.postMessage({ type: 'addResponse', value: '...' });
@@ -334,7 +334,7 @@ class CodeGPTViewProvider implements vscode.WebviewViewProvider {
 			</head>
 			<body>
 				<input class="h-10 w-full text-white bg-stone-700 p-4 text-sm" placeholder="Ask GPT3 something" id="prompt-input" />
-				
+
 				<div id="response" class="pt-4 text-sm">
 				</div>
 
