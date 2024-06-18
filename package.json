@@ -119,9 +119,6 @@
         {
           "command": "llamafile.documentation",
           "when": "editorHasSelection"
-        },
-        {
-          "command": "llamafile.resetSession"
         }
       ]
     },
@@ -238,6 +235,6 @@
     "webpack-cli": "^5.0.0"
   },
   "dependencies": {
-    "openai": "^3.1.0"
+    "openai": "^4.0.0"
   }
 }

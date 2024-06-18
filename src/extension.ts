@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
-import { Configuration, OpenAIApi } from 'openai';
+import { OpenAI, ClientOptions } from 'openai';
 
-import createPrompt from './prompt';
+import createMessages from './prompt';
+import { ClientRequest } from 'http';
 
 
 type AuthInfo = {address?: string};
@@ -25,7 +26,7 @@ export function activate(context: vscode.ExtensionContext) {
 		pasteOnClick: config.get('pasteOnClick') || false,
 		maxTokens: config.get('maxTokens') || 500,
 		temperature: config.get('temperature') || 0.5,
-		model: config.get('model') || 'text-davinci-003'
+		model: 'LLaMA_CPP'
 	});
 
 	// Register the provider with the extension's context
@@ -89,7 +90,7 @@ class LlamafileViewProvider implements vscode.WebviewViewProvider {
 	public static readonly viewType = 'llamafile.chatView';
 	private _view?: vscode.WebviewView;
 
-	private _openai?: OpenAIApi;
+	private _openai?: OpenAI;
 
 	private _response?: string;
 	private _prompt?: string;
@@ -102,7 +103,7 @@ class LlamafileViewProvider implements vscode.WebviewViewProvider {
 		maxTokens: 500,
 		temperature: 0.5
 	};
-	private _apiConfiguration?: Configuration;
+	private _apiConfiguration?: ClientOptions;
 	private _address?: string;
 
 	// In the constructor, we store the URI of the extension
@@ -113,7 +114,7 @@ class LlamafileViewProvider implements vscode.WebviewViewProvider {
 	// Set the session token and create a new API instance based on this token
 	public setAuthenticationInfo(authInfo: AuthInfo) {
 		this._address = authInfo.address;
-		this._apiConfiguration = new Configuration({basePath: authInfo.address});
+		this._apiConfiguration = {baseURL: authInfo.address, apiKey: 'fake key'};
 		this._newAPI();
 	}
 
@@ -130,7 +131,7 @@ class LlamafileViewProvider implements vscode.WebviewViewProvider {
 		if (!this._apiConfiguration || !this._address) {
 			console.warn("API address not set, please go to extension settings (read README.md for more info)");
 		}else{
-			this._openai = new OpenAIApi(this._apiConfiguration);
+			this._openai = new OpenAI(this._apiConfiguration);
 		}
 	}
 
@@ -178,16 +179,6 @@ class LlamafileViewProvider implements vscode.WebviewViewProvider {
 	}
 
 
-	public async resetSession() {
-		this._prompt = '';
-		this._response = '';
-		this._fullPrompt = '';
-		this._view?.webview.postMessage({ type: 'setPrompt', value: '' });
-		this._view?.webview.postMessage({ type: 'addResponse', value: '' });
-		this._newAPI();
-	}
-
-
 	public async search(prompt?:string) {
 		this._prompt = prompt;
 		if (!prompt) {
@@ -211,8 +202,7 @@ class LlamafileViewProvider implements vscode.WebviewViewProvider {
 		// Get the selected text of the active editor
 		const selection = vscode.window.activeTextEditor?.selection;
 		const selectedText = vscode.window.activeTextEditor?.document.getText(selection);
-		let searchPrompt = createPrompt(prompt, this._settings, selectedText);
-		this._fullPrompt = searchPrompt;
+		let messages = createMessages(prompt, this._settings, selectedText);
 
 		if (!this._openai) {
 			response = '[ERROR] API token not set, please go to extension settings to set it (read README.md for more info)';
@@ -232,30 +222,19 @@ class LlamafileViewProvider implements vscode.WebviewViewProvider {
 
 				// Send the search prompt to the OpenAI API and store the response
 
-				let completion;
-				if (this._settings.model !== 'ChatGPT') {
-					completion = await this._openai.createCompletion({
-						model: this._settings.model || 'code-davinci-002',
-						prompt: searchPrompt,
-						temperature: this._settings.temperature,
-						max_tokens: this._settings.maxTokens,
-						stop: ['\nUSER: ', '\nUSER', '\nASSISTANT']
-					});
-				} else {
-					completion = await this._openai.createCompletion({
-						model: 'text-chat-davinci-002-20221122',
-						prompt: searchPrompt,
-						temperature: this._settings.temperature,
-						max_tokens: this._settings.maxTokens,
-						stop: ['\n\n\n', '<|im_end|>']
-					});
-				}
+				let completion = await this._openai.chat.completions.create({
+					model: this._settings.model || 'LLaMA_CPP',
+					messages: messages,
+					temperature: this._settings.temperature,
+					max_tokens: this._settings.maxTokens,
+					stream: false
+				})
 
 				if (this._currentMessageNumber !== currentMessageNumber) {
 					return;
 				}
 
-				response = completion.data.choices[0].text || '';
+				response = completion.choices[0].message.content || '';
 
 				// close unclosed codeblocks
 				// Use a regular expression to find all occurrences of the substring in the string
@@ -270,10 +249,10 @@ class LlamafileViewProvider implements vscode.WebviewViewProvider {
 
 				response += `\n\n---\n`;
 				// add error message if max_tokens reached
-				if (completion.data.choices[0].finish_reason === 'length') {
+				if (completion.choices[0].finish_reason === 'length') {
 					response += `\n[WARNING] The response was truncated because it reached the maximum number of tokens. You may want to increase the maxTokens setting.\n\n`;
 				}
-				response += `Tokens used: ${completion.data.usage?.total_tokens}`;
+				response += `Tokens used: ${completion.usage?.total_tokens}`;
 
 			} catch (error:any) {
 				let e = '';
