@@ -2,7 +2,7 @@
   "name": "vscode-llamafile",
   "displayName": "llamafile: write and improve code using AI",
   "description": "Use a llamafile right inside the IDE to enhance and automate your coding with AI-powered assistance",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "publisher": "YotamAlon",
   "icon": "resources/extensionIcon.png",
   "license": "MIT",
@@ -26,15 +26,7 @@
     "refactor",
     "llamafile"
   ],
-  "activationEvents": [
-    "onView:llamafile.chatView",
-    "onCommand:llamafile.ask",
-    "onCommand:llamafile.explain",
-    "onCommand:llamafile.refactor",
-    "onCommand:llamafile.optimize",
-    "onCommand:llamafile.findProblems",
-    "onCommand:llamafile.documentation"
-  ],
+  "activationEvents": [],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
